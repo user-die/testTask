@@ -1,90 +1,76 @@
 import "./App.css";
-import CryptoJS from "crypto-js";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { setState, changePage } from "./store/slice";
+import { changePage, fetchAllitems, fetchCurrentItems } from "./store/slice";
 
 const App = () => {
   const state = useSelector((state) => state.state);
-
+  console.log(state);
   const dispatch = useDispatch();
 
-  const obj = {
-    action: "get_ids",
-  };
+  const [qwe, setQwe] = useState();
 
-  const password = "Valantis";
-  const timestamp = new Date().toISOString().slice(0, 10).split("-").join("");
+  let lastItemIndex = state.currentPage * state.itemPerPage,
+    firstItemIndex = lastItemIndex - state.itemPerPage,
+    currentItems = state.allItems.slice(firstItemIndex, lastItemIndex);
+  const numberOfButtons = Math.floor(8000 / 50);
 
-  const data = `${password}_${timestamp}`;
-  const authorizationString = CryptoJS.MD5(data).toString();
-
-  async function getData() {
-    const response = await fetch("https://api.valantis.store:41000/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Auth": authorizationString,
-      },
-      body: JSON.stringify(obj),
-    }).then((res) => res.json());
-
-    return response;
-  }
-
-  async function getItemData(item) {
-    const response = await fetch("https://api.valantis.store:41000/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Auth": authorizationString,
-      },
-      body: JSON.stringify({
-        action: "get_items",
-        params: { ids: [item] },
-      }),
-    }).then((res) => res.json());
-
-    return response;
-  }
-
-  async function qwe() {
-    let items = await getData();
-
-    dispatch(setState(items.result));
-
-    /*
-    const qwe = items.result.forEach((element) => {
-      getItemData(element);
-    });
-    */
-
-    //let a = await getItemData(items.result[0]);
-
-    //dispatch(setState(a.result));
-  }
+  /*
+  useEffect(() => {
+    dispatch(fetchAllitems());
+  }, [dispatch]);
+  */
 
   useEffect(() => {
+    async function qwe() {
+      let data = await dispatch(fetchAllitems());
+
+      let lastItemIndex = state.currentPage * state.itemPerPage,
+        firstItemIndex = lastItemIndex - state.itemPerPage;
+
+      await dispatch(
+        fetchCurrentItems(data.payload.slice(firstItemIndex, lastItemIndex))
+      );
+    }
+
     qwe();
   }, []);
 
-  let lastItemIndex = state.currentPage * state.itemPerPage;
-  let firstItemIndex = lastItemIndex - state.itemPerPage;
-  const currentItems = state.value.slice(firstItemIndex, lastItemIndex);
-  const numberOfButtons = Math.floor(state.value.length / state.itemPerPage);
-
   const buttons = Array.from({ length: numberOfButtons }, (_, index) => {
     return (
-      <button onClick={() => dispatch(changePage(index + 1))} key={index}>
+      <button
+        className="btn btn-light"
+        onClick={() => dispatch(changePage(index + 1))}
+        key={index}
+      >
         {index + 1}
       </button>
     );
   });
 
+  // {currentItems && currentItems.map((el) => el)}
+
   return (
     <div className="App">
       <header className="App-header">
-        <div>{state.value && currentItems.map((el) => el)}</div>
+        <div>
+          {state.currentItems &&
+            state.currentItems.map((item) => {
+              <div className="card">
+                <div className="card-body">
+                  <h5 className="card-title">{item.brand}</h5>
+                  <h6 className="card-subtitle mb-2 text-body-secondary">
+                    {item.id}
+                  </h6>
+                  <p className="card-text">{item.price}</p>
+                </div>
+              </div>;
+            })}
+
+          {state.status === "loading" && <h2>Загрузка ...</h2>}
+          {state.error && <h2>{state.error}</h2>}
+        </div>
+
         <div>{buttons}</div>
       </header>
     </div>
