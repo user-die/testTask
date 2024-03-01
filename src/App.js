@@ -2,76 +2,72 @@ import "./App.css";
 import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { changePage, fetchAllitems, fetchCurrentItems } from "./store/slice";
+import CryptoJS from "crypto-js";
 
 const App = () => {
-  const state = useSelector((state) => state.state);
-  console.log(state);
-  const dispatch = useDispatch();
+  const [allItems, setAllItems] = useState();
+  const [currentItems, setCurrentItems] = useState();
 
-  const [qwe, setQwe] = useState();
-
-  let lastItemIndex = state.currentPage * state.itemPerPage,
-    firstItemIndex = lastItemIndex - state.itemPerPage,
-    currentItems = state.allItems.slice(firstItemIndex, lastItemIndex);
-  const numberOfButtons = Math.floor(8000 / 50);
-
-  /*
-  useEffect(() => {
-    dispatch(fetchAllitems());
-  }, [dispatch]);
-  */
+  const timestamp = new Date().toISOString().slice(0, 10).split("-").join(""),
+    data = `Valantis_${timestamp}`,
+    authorizationString = CryptoJS.MD5(data).toString();
 
   useEffect(() => {
-    async function qwe() {
-      let data = await dispatch(fetchAllitems());
-
-      let lastItemIndex = state.currentPage * state.itemPerPage,
-        firstItemIndex = lastItemIndex - state.itemPerPage;
-
-      await dispatch(
-        fetchCurrentItems(data.payload.slice(firstItemIndex, lastItemIndex))
-      );
-    }
-
-    qwe();
+    fetch("https://api.valantis.store:41000/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Auth": authorizationString,
+      },
+      body: JSON.stringify({
+        action: "get_ids",
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setAllItems(data.result);
+      });
   }, []);
 
-  const buttons = Array.from({ length: numberOfButtons }, (_, index) => {
-    return (
-      <button
-        className="btn btn-light"
-        onClick={() => dispatch(changePage(index + 1))}
-        key={index}
-      >
-        {index + 1}
-      </button>
-    );
-  });
+  useEffect(() => {
+    if (allItems && allItems.length) {
+      fetch("https://api.valantis.store:41000/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Auth": authorizationString,
+        },
+        body: JSON.stringify({
+          action: "get_items",
+          params: {
+            ids: allItems.slice(0, 50),
+          },
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          setCurrentItems(data.result);
+        });
+    }
+  }, [allItems]);
 
-  // {currentItems && currentItems.map((el) => el)}
+  console.log(currentItems);
 
   return (
     <div className="App">
       <header className="App-header">
-        <div>
-          {state.currentItems &&
-            state.currentItems.map((item) => {
-              <div className="card">
-                <div className="card-body">
-                  <h5 className="card-title">{item.brand}</h5>
-                  <h6 className="card-subtitle mb-2 text-body-secondary">
-                    {item.id}
-                  </h6>
-                  <p className="card-text">{item.price}</p>
-                </div>
-              </div>;
-            })}
-
-          {state.status === "loading" && <h2>Загрузка ...</h2>}
-          {state.error && <h2>{state.error}</h2>}
-        </div>
-
-        <div>{buttons}</div>
+        {currentItems &&
+          currentItems.map((item) => (
+            <div className="card">
+              <div className="card-body">
+                <h5 className="card-title">{item.brand}</h5>
+                <h6 className="card-subtitle mb-2 text-body-secondary">
+                  {item.id}
+                </h6>
+                <p className="card-text">{item.price}</p>
+              </div>
+            </div>
+          ))}
       </header>
     </div>
   );
