@@ -1,6 +1,5 @@
 import "./App.css";
 import CryptoJS from "crypto-js";
-import uniqueId from "lodash.uniqueid";
 import { useEffect, useState } from "react";
 import {
   ChevronDoubleLeft,
@@ -9,14 +8,12 @@ import {
   ChevronRight,
 } from "react-bootstrap-icons";
 
-// Фильтрация
-
 const App = () => {
   const [allItems, setAllItems] = useState(),
     [currentItems, setCurrentItems] = useState(),
     [currentPage, setCurrentPage] = useState(1),
     [status, setStatus] = useState("loading"),
-    [filterType, setFilterType] = useState(),
+    [filterType, setFilterType] = useState("product"),
     [filter, setFilter] = useState();
 
   const timestamp = new Date().toISOString().slice(0, 10).split("-").join(""),
@@ -28,6 +25,18 @@ const App = () => {
     firstIndex = lastIndex - itemsPerPage,
     numberOfButtons = allItems && Math.floor(allItems.length / itemsPerPage),
     items = allItems && allItems.slice(firstIndex, lastIndex);
+
+  let buttons = pagination(currentPage, numberOfButtons).map((el, index) => (
+    <button
+      className="btn btn-light me-1"
+      key={index}
+      onClick={() => {
+        if (el !== "...") setCurrentPage(el);
+      }}
+    >
+      {el}
+    </button>
+  ));
 
   useEffect(() => {
     request(
@@ -59,12 +68,23 @@ const App = () => {
       request(
         {
           action: "filter",
-          params: { [filterType]: filter },
+          params: {
+            [filterType]: filterType === "price" ? parseInt(filter) : filter,
+          },
         },
         setAllItems
       );
     }
-  }, [filterType]);
+
+    if (filter === "") {
+      request(
+        {
+          action: "get_ids",
+        },
+        setAllItems
+      );
+    }
+  }, [filter]);
 
   function pagination(c, m) {
     var current = c,
@@ -77,7 +97,7 @@ const App = () => {
       l;
 
     for (let i = 1; i <= last; i++) {
-      if (i == 1 || i == last || (i >= left && i < right)) {
+      if (i === 1 || i === last || (i >= left && i < right)) {
         range.push(i);
       }
     }
@@ -106,82 +126,89 @@ const App = () => {
       },
       body: JSON.stringify(body),
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status !== 200) {
+          request(body, callback);
+          console.log(res.status)
+        }
+        return res.json();
+      })
       .then((data) => {
-        callback(data.result);
-        setStatus("fulfiled");
-      }).catch((error) => setStatus('rejected'))
-  }
+        if (data.result && data.result.length)
+          callback(
+            data.result.filter(
+              (item, index) => data.result.indexOf(item) === index
+            )
+          );
 
-  let buttons = pagination(currentPage, numberOfButtons).map((el) => (
-    <button
-      className="btn btn-light me-1"
-      key={uniqueId()}
-      onClick={() => {
-        if (el !== "...") setCurrentPage(el);
-      }}
-    >
-      {el}
-    </button>
-  ));
+        setStatus("fulfiled");
+      })
+      .catch((error) => setStatus("rejected"));
+  }
 
   return (
     <div className="App">
-      {status === "fulfiled" && (
-        <form onSubmit={(e) => e.preventDefault()} className="d-flex align-items-center m-2">
+      {
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          className="d-flex align-items-center px-4 py-2 mx-auto"
+        >
           <select
             value={filterType}
+            name="filter"
             onChange={(e) => setFilterType(e.target.value)}
-            className="form-select mx-5"
+            className="form-select"
+            key='1'
           >
+            <option value="product">Название</option>
             <option value="price">Цена</option>
             <option value="brand">Бренд</option>
-            <option value="product">Название</option>
           </select>
           <input
             type="text"
             name="price"
+            placeholder="Фильтр"
             value={filter}
+            key='2'
             onChange={(e) => setFilter(e.target.value)}
-            className="form-control flex-grow-"
-          ></input>
-          
+            className="form-control"
+          />
         </form>
-      )}
-      <div className="d-flex justify-content-center m-2 gap-3 flex-wrap">
+      }
+      <div className="d-flex justify-content-center p-4 gap-3 flex-wrap">
         {status === "loading" && (
           <h2 style={{ position: "absolute", top: "40%" }}>
             Загрузка данных ...
           </h2>
         )}
 
-        {status === "rejected" && (
-          <h2 style={{ position: "absolute", top: "40%" }}>
-            Ошибка загрузки данных. Обновите страницу
-          </h2>
-        )}
-
         {currentItems &&
-          currentItems.map((item) => (
-            <div className="card">
-              <h6 className="card-title">{item.brand}</h6>
-
-              <p className="card-text">{item.product}</p>
-              <h6 className="card-subtitle mb-2 text-body-secondary">
-                id: {item.id}
-              </h6>
-              <p className="card-text">Цена: {item.price} руб.</p>
-            </div>
-          ))}
+          currentItems
+            .filter((v, i, a) => a.findIndex((v2) => v2.id === v.id) === i)
+            .map((item, index) => (
+              <div className="card" key={`div${index}`}>
+                <h6 className="card-title" key={`title${index}`}>{item.brand}</h6>
+                <p className="card-text" key={`text${index}`}>{item.product}</p>
+                <h6 className="card-subtitle mb-2 text-body-secondary" key={`h6${index}`}>
+                  id: {item.id}
+                </h6>
+                <p className="card-text" key={`p${index}`}>Цена: {item.price} руб.</p>
+              </div>
+            ))}
       </div>
-      {status === "fulfiled" && (
-        <div className='py-3'> 
-          <button className="btn btn-light me-1" onClick={() => setCurrentPage(1)}>
+      {status === "fulfiled" && allItems && allItems.length > 50 && (
+        <div className="py-3">
+          <button
+            className="btn btn-light me-1"
+            onClick={() => setCurrentPage(1)}
+          >
             <ChevronDoubleLeft />
           </button>
           <button
             className="btn btn-light me-1"
-            onClick={() => setCurrentPage(currentPage - 1)}
+            onClick={() => {
+              if (currentPage !== 1) setCurrentPage(currentPage - 1);
+            }}
           >
             <ChevronLeft />
           </button>
@@ -190,7 +217,10 @@ const App = () => {
 
           <button
             className="btn btn-light me-1"
-            onClick={() => setCurrentPage(currentPage + 1)}
+            onClick={() => {
+              if (currentPage !== numberOfButtons)
+                setCurrentPage(currentPage + 1);
+            }}
           >
             <ChevronRight />
           </button>
