@@ -54,16 +54,16 @@ const App = () => {
     }
   }, [allItems, currentPage]);
 
-  // product, price, brand
-
   useEffect(() => {
-    request(
-      {
-        action: "filter",
-        params: { product: filter },
-      },
-      setAllItems
-    );
+    if (filter && filter.length) {
+      request(
+        {
+          action: "filter",
+          params: { [filterType]: filter },
+        },
+        setAllItems
+      );
+    }
   }, [filterType]);
 
   function pagination(c, m) {
@@ -110,12 +110,12 @@ const App = () => {
       .then((data) => {
         callback(data.result);
         setStatus("fulfiled");
-      });
+      }).catch((error) => setStatus('rejected'))
   }
 
   let buttons = pagination(currentPage, numberOfButtons).map((el) => (
     <button
-      className="btn btn-light"
+      className="btn btn-light me-1"
       key={uniqueId()}
       onClick={() => {
         if (el !== "...") setCurrentPage(el);
@@ -128,24 +128,27 @@ const App = () => {
   return (
     <div className="App">
       {status === "fulfiled" && (
-        <form onSubmit={(e) => e.preventDefault()}>
+        <form onSubmit={(e) => e.preventDefault()} className="d-flex align-items-center m-2">
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
+            className="form-select mx-5"
           >
             <option value="price">Цена</option>
             <option value="brand">Бренд</option>
-            <option value="title">Название</option>
+            <option value="product">Название</option>
           </select>
           <input
             type="text"
             name="price"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
+            className="form-control flex-grow-"
           ></input>
+          
         </form>
       )}
-      <div className="flex-block">
+      <div className="d-flex justify-content-center m-2 gap-3 flex-wrap">
         {status === "loading" && (
           <h2 style={{ position: "absolute", top: "40%" }}>
             Загрузка данных ...
@@ -165,19 +168,19 @@ const App = () => {
 
               <p className="card-text">{item.product}</p>
               <h6 className="card-subtitle mb-2 text-body-secondary">
-                {item.id}
+                id: {item.id}
               </h6>
-              <p className="card-text">{`${item.price} руб.`}</p>
+              <p className="card-text">Цена: {item.price} руб.</p>
             </div>
           ))}
       </div>
       {status === "fulfiled" && (
-        <div>
-          <button className="btn btn-light" onClick={() => setCurrentPage(1)}>
+        <div className='py-3'> 
+          <button className="btn btn-light me-1" onClick={() => setCurrentPage(1)}>
             <ChevronDoubleLeft />
           </button>
           <button
-            className="btn btn-light"
+            className="btn btn-light me-1"
             onClick={() => setCurrentPage(currentPage - 1)}
           >
             <ChevronLeft />
@@ -186,7 +189,7 @@ const App = () => {
           {buttons}
 
           <button
-            className="btn btn-light"
+            className="btn btn-light me-1"
             onClick={() => setCurrentPage(currentPage + 1)}
           >
             <ChevronRight />

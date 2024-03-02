@@ -12,14 +12,6 @@
   color: white;
 }
 
-.flex-block {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin: 0 2vw;
-  gap: 15px 15px;
-}
-
 .card {
   flex-direction: column;
   justify-content: space-between;
